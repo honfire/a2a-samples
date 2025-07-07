@@ -136,11 +136,18 @@ class CoderAgentExecutor implements AgentExecutor {
 
     try {
       // 4. Run the Genkit prompt
+      // Remove the 'system' property and prepend system instruction as a user message
+      const systemInstruction = {
+        role: 'user' as 'user',
+        content: [
+          { text: 'You are an expert coding assistant. Provide a high-quality code sample according to the output instructions provided below. You may generate multiple files as needed.' }
+        ],
+      };
+      const messagesWithSystem = [systemInstruction, ...messages];
+
       const { stream, response } = await ai.generateStream({
-        system:
-          'You are an expert coding assistant. Provide a high-quality code sample according to the output instructions provided below. You may generate multiple files as needed.',
         output: { format: 'code' },
-        messages,
+        messages: messagesWithSystem,
       });
 
       const fileContents = new Map<string, string>(); // Stores latest content per file
