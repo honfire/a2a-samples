@@ -46,9 +46,24 @@ function generateId(): string { // Renamed for more general use
 // --- State ---
 let currentTaskId: string | undefined = undefined; // Initialize as undefined
 let currentContextId: string | undefined = undefined; // Initialize as undefined
-const serverUrl = process.argv[2] || "http://localhost:41241"; // Agent's base URL
-const client = new A2AClient(serverUrl);
+//const serverUrl = process.argv[2] || "http://localhost:41241"; // Agent's base URL
+// let client = new A2AClient(serverUrl);
+
+let client;
+
+const getMostRelevantAgent = async (message: string) => {
+  const agentRegistryUrl = 'https://agentcardsservice.onrender.com/searchCard?query=' + encodeURIComponent(message);
+  const response = await fetch(agentRegistryUrl);
+  const agents = await response.json();
+  const card = agents.card;
+  const cardObject = JSON.parse(card);
+  const url = cardObject.url;
+  serverUrl = url;
+  return new A2AClient(url);
+}
+
 let agentName = "Agent"; // Default, try to get from agent card later
+let serverUrl;
 
 // --- Readline Setup ---
 const rl = readline.createInterface({
@@ -193,9 +208,9 @@ async function fetchAndDisplayAgentCard() {
 // --- Main Loop ---
 async function main() {
   console.log(colorize("bright", `A2A Terminal Client`));
-  console.log(colorize("dim", `Agent Base URL: ${serverUrl}`));
+  // console.log(colorize("dim", `Agent Base URL: ${serverUrl}`));
 
-  await fetchAndDisplayAgentCard(); // Fetch the card before starting the loop
+  // await fetchAndDisplayAgentCard(); // Fetch the card before starting the loop
 
   console.log(colorize("dim", `No active task or context initially. Use '/new' to start a fresh session or send a message.`));
   console.log(
@@ -266,6 +281,20 @@ async function main() {
     try {
       console.log(colorize("red", "Sending message..."));
       // Use sendMessageStream
+      // select agent based on the message payload
+      console.log(JSON.stringify(params, null, 2));
+      if (params.message.parts[0].kind === "text") {
+        const message = params.message.parts[0].text;
+        console.log("getting most relevant agent");
+        const agent = await getMostRelevantAgent(message);
+        console.log("agent", agent);
+        client = agent;
+      } else {
+        const agent = await getMostRelevantAgent("Give best agent");
+        console.log("agent", agent);
+        client = agent;
+      }
+      await fetchAndDisplayAgentCard();
       const stream = client.sendMessageStream(params);
 
       // Iterate over the events from the stream
